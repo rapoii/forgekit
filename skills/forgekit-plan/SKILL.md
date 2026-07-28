@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When spec and analysis exist and you need a technical implementation plan — create architecture decisions, tech stack, and bite-sized tasks"
 tags: [forgekit, planning, architecture, implementation]
-related_skills: [forgekit-spec, forgekit-analyze, forgekit-checklist, forgekit-tasks, forgekit-tdd]
+related_skills: [forgekit-specify, forgekit-analyze, forgekit-checklist, forgekit-tasks, forgekit-tdd]
 ---
 
 # Forgekit Plan
@@ -13,7 +13,7 @@ Create a technical implementation plan from the spec. Architecture decisions, te
 
 ## When to Use
 
-- After `/forgekit.spec` and `/forgekit.analyze` are complete
+- After `/forgekit.specify` and `/forgekit.analyze` are complete
 - When you're ready to transition from "what to build" to "how to build"
 - Before dispatching implementation work to subagents
 - After `/forgekit.checklist` passes (or blockers are resolved)
@@ -79,7 +79,7 @@ Create a technical implementation plan from the spec. Architecture decisions, te
 
 ## Connected Skills
 
-- **← Prerequisite**: `/forgekit.spec` (requirements), `/forgekit.analyze` (decisions)
+- **← Prerequisite**: `/forgekit.specify` (requirements), `/forgekit.analyze` (decisions)
 - **← Optional**: `/forgekit.checklist` (validate spec completeness)
 - **→ Next**: `/forgekit.tasks` (detailed task breakdown) or `/forgekit.tdd` (start TDD cycle)
 - **→ Parallel**: `/forgekit.constitution` to validate against principles

@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When tasks are ready and you need to execute — dispatch subagents per task, review each output, commit frequently"
 tags: [forgekit, execution, implementation, subagents]
-related_skills: [forgekit-tasks, forgekit-tdd, forgekit-review, forgekit-parallel, forgekit-spec, forgekit-constitution]
+related_skills: [forgekit-tasks, forgekit-tdd, forgekit-review, forgekit-parallel, forgekit-specify, forgekit-constitution]
 ---
 
 # Forgekit Implement
@@ -110,7 +110,7 @@ For each task in `.forgekit/tasks.md`:
 ## Connected Skills
 
 - **← Prerequisite**: `/forgekit.tasks` (detailed task list)
-- **← Context**: `/forgekit.spec`, `/forgekit.plan`, `/forgekit.constitution`
+- **← Context**: `/forgekit.specify`, `/forgekit.plan`, `/forgekit.constitution`
 - **→ Next**: `/forgekit.review` (comprehensive review)
 - **→ Optional**: `/forgekit.tdd` as inner loop, `/forgekit.parallel` for fan-out
 - **→ Optional**: `/forgekit.debug` if issues arise

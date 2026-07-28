@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When plan exists and you need a detailed actionable task list — break into 2-5 min tasks with exact file paths, code, and verification steps"
 tags: [forgekit, planning, tasks, execution]
-related_skills: [forgekit-plan, forgekit-spec, forgekit-implement, forgekit-tdd, forgekit-publish]
+related_skills: [forgekit-plan, forgekit-specify, forgekit-implement, forgekit-tdd, forgekit-publish]
 ---
 
 # Forgekit Tasks
@@ -89,7 +89,7 @@ Break the implementation plan into a precise, actionable task list. Each task is
 ## Connected Skills
 
 - **← Prerequisite**: `/forgekit.plan` (architecture and task outlines)
-- **← Optional**: `/forgekit.spec` (acceptance criteria), `/forgekit.checklist` (validated requirements)
+- **← Optional**: `/forgekit.specify` (acceptance criteria), `/forgekit.checklist` (validated requirements)
 - **→ Next**: `/forgekit.implement` (execute tasks) or `/forgekit.publish` (convert to GitHub Issues)
 - **→ Parallel**: `/forgekit.tdd` as the execution method for each task
 

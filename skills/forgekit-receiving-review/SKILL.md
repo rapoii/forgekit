@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When a human submits code review feedback — parse comments, categorize severity, auto-fix criticals, track review rounds"
 tags: [forgekit, review, feedback, collaboration]
-related_skills: [forgekit-review, forgekit-implement, forgekit-spec, forgekit-debug]
+related_skills: [forgekit-review, forgekit-implement, forgekit-specify, forgekit-debug]
 ---
 
 # Forgekit Receiving Review
@@ -136,7 +136,7 @@ Handle incoming code review feedback from humans. Parse review comments, categor
 ## Connected Skills
 
 - **← Prerequisite**: `/forgekit.review` (initial self-review) or human review request
-- **← Context**: `/forgekit.spec` (for evaluating suggestions), `/forgekit.constitution`
+- **← Context**: `/forgekit.specify` (for evaluating suggestions), `/forgekit.constitution`
 - **→ Next**: `/forgekit.implement` (for applying fixes), then `/forgekit.review` (re-verify)
 - **→ Parallel**: `/forgekit.debug` if review reveals bugs
 

@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When implementation is complete and you need a comprehensive review — check spec compliance AND code quality in two dimensions"
 tags: [forgekit, review, quality, verification]
-related_skills: [forgekit-implement, forgekit-spec, forgekit-constitution, forgekit-checklist, forgekit-receiving-review, forgekit-verify, forgekit-debug]
+related_skills: [forgekit-implement, forgekit-specify, forgekit-constitution, forgekit-checklist, forgekit-receiving-review, forgekit-verify, forgekit-debug]
 ---
 
 # Forgekit Review
@@ -130,7 +130,7 @@ Comprehensive two-dimensional code review: (1) Does the code match the spec? (2)
 ## Connected Skills
 
 - **← Prerequisite**: `/forgekit.implement` (code must exist to review)
-- **← Context**: `/forgekit.spec`, `/forgekit.constitution`, `/forgekit.checklist`
+- **← Context**: `/forgekit.specify`, `/forgekit.constitution`, `/forgekit.checklist`
 - **→ Next**: `/forgekit.verify` (run verification suite) or `/forgekit.debug` (fix issues)
 - **→ Parallel**: `/forgekit.receiving-review` if sharing with human reviewers
 

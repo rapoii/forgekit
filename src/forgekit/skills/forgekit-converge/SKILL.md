@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When you need to check progress — compare spec requirements against actual implementation to find gaps, missing features, and incomplete work"
 tags: [forgekit, convergence, gap-analysis, spec-compliance]
-related_skills: [forgekit-spec, forgekit-implement, forgekit-verify, forgekit-plan]
+related_skills: [forgekit-specify, forgekit-implement, forgekit-verify, forgekit-plan]
 ---
 
 # Forgekit Converge
@@ -116,7 +116,7 @@ Based on the gap report:
 
 ## Connected Skills
 
-- **Before:** `/forgekit.spec` — needs a spec to compare against
+- **Before:** `/forgekit.specify` — needs a spec to compare against
 - **Before:** `/forgekit.implement` — implementation must be underway or complete
 - **If gaps found:** `/forgekit.implement` — implement the missing pieces
 - **If gaps found:** `/forgekit.plan` — re-plan if significant work remains

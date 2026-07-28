@@ -107,7 +107,7 @@ As agents complete:
 ## Connected Skills
 
 - **Before:** `/forgekit.plan` — confirms which items can be parallelized
-- **Before:** `/forgekit.spec` — spec must exist with clear per-task requirements
+- **Before:** `/forgekit.specify` — spec must exist with clear per-task requirements
 - **During:** `/forgekit.implement` — each agent uses implement logic for its task
 - **After:** `/forgekit.review` — review the combined result
 - **After:** `/forgekit.verify` — full verification after merge

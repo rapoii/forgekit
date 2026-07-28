@@ -4,7 +4,7 @@ version: 0.1.0
 author: Forgekit
 description: "When spec exists and you need to validate requirements completeness — generate a quality checklist from the spec"
 tags: [forgekit, planning, quality, checklist, requirements]
-related_skills: [forgekit-spec, forgekit-analyze, forgekit-plan, forgekit-tasks]
+related_skills: [forgekit-specify, forgekit-analyze, forgekit-plan, forgekit-tasks]
 ---
 
 # Forgekit Checklist
@@ -13,14 +13,14 @@ Generate a quality checklist FROM the spec — like "unit tests for English." Th
 
 ## When to Use
 
-- After `/forgekit.spec` has been written and you want to validate it
+- After `/forgekit.specify` has been written and you want to validate it
 - Before planning implementation (catch gaps early, fix cheap)
 - When a stakeholder asks "is the spec complete?"
 - After `/forgekit.analyze` has surfaced questions that need answers
 
 ## Steps
 
-1. **Load the spec** from `.forgekit/spec.md`. If it doesn't exist, stop — run `/forgekit.spec` first.
+1. **Load the spec** from `.forgekit/spec.md`. If it doesn't exist, stop — run `/forgekit.specify` first.
 
 2. **Load the constitution** from `.forgekit/constitution.md` if it exists. Include its principles as checklist constraints.
 
@@ -85,10 +85,10 @@ Generate a quality checklist FROM the spec — like "unit tests for English." Th
 
 ## Connected Skills
 
-- **← Prerequisite**: `/forgekit.spec` (need a spec to validate)
+- **← Prerequisite**: `/forgekit.specify` (need a spec to validate)
 - **← Optional**: `/forgekit.analyze` (analysis questions inform checklist)
 - **→ Next**: `/forgekit.plan` (once checklist is green or blockers resolved)
-- **→ Parallel**: `/forgekit.spec` for reworking sections with failures
+- **→ Parallel**: `/forgekit.specify` for reworking sections with failures
 
 ## Examples
 
@@ -110,7 +110,7 @@ Agent: Loading spec from .forgekit/spec.md...
        Overall: 70% ready — 10 blockers to resolve
 
        Saved to .forgekit/checklist.md
-       Run /forgekit.spec to address blockers, then /forgekit.plan to proceed.
+       Run /forgekit.specify to address blockers, then /forgekit.plan to proceed.
 ```
 
 ### Checklist with no issues
