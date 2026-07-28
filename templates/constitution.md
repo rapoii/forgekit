@@ -43,3 +43,22 @@
 ## Review Standards
 - [What reviewers should check]
 - [Minimum approval requirements]
+
+
+## Gates (Inspired by Spec Kit)
+
+### Simplicity Gate (Article VII)
+- Solution MUST use ≤ 3 distinct frameworks/libraries
+- No "future-proofing" — build what's needed today
+- No premature abstractions — duplicate code > wrong abstraction
+
+### Anti-Abstraction Gate (Article VIII)
+- Use framework features directly, don't wrap them
+- Don't create helper utilities for one-time operations
+- Custom code only when standard library doesn't exist
+- Example: use `requests.get()` directly, don't wrap in a custom APIClient
+
+### Test-First Gate (Article IX)
+- Production code MUST have failing test first
+- Test file created BEFORE source file
+- All tests pass before claiming complete

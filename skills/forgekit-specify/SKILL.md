@@ -213,3 +213,20 @@ Agent: [writes spec]
 - **Active spec vs history.** Always save to both `.forgekit/spec.md` (active) and `.forgekit/specs/{feature}.md` (history). The active spec is what other skills read.
 - **Out of scope is critical.** Explicitly listing what's NOT included prevents scope creep.
 - **MoSCoW prioritization.** Use Must/Should/Could/Won't for requirement priorities.
+
+
+## Auto Branch Creation
+
+When specs are generated in a git repo, create a semantic branch:
+
+```bash
+# Auto-generate branch name from feature description
+branch_name="001-$(echo "$FEATURE_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+git checkout -b "$branch_name"
+```
+
+Rules:
+- Feature numbering: `001`, `002`, `003` (auto-incrementing)
+- Name from spec description (kebab-case)
+- Auto-checkout new branch
+- Save spec at `specs/<branch>/spec.md`
