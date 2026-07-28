@@ -11,6 +11,7 @@ Usage:
 
 import os
 import sys
+import yaml
 import json
 import shutil
 from pathlib import Path
@@ -561,72 +562,19 @@ def main():
 
 
 def _write_yaml(path: Path, data: dict):
-    """Write a simple YAML file (no external dependency)."""
-    lines = []
-    for key, value in data.items():
-        if isinstance(value, list):
-            if not value:
-                lines.append(f"{key}: []")
-            else:
-                lines.append(f"{key}:")
-                for item in value:
-                    if isinstance(item, dict):
-                        lines.append(f"  - {json.dumps(item)}")
-                    else:
-                        lines.append(f"  - {item}")
-        elif isinstance(value, dict):
-            if not value:
-                lines.append(f"{key}: {{}}")
-            else:
-                lines.append(f"{key}:")
-                for k, v in value.items():
-                    lines.append(f"  {k}: {v}")
-        elif value is None:
-            lines.append(f"{key}: null")
-        else:
-            lines.append(f"{key}: {value}")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    """Write a YAML file."""
+    path.write_text(yaml.dump(data, default_flow_style=False, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def _read_yaml(path: Path) -> dict:
-    """Read a simple YAML file (no external dependency)."""
+    """Read a YAML file."""
     if not path.exists():
         return {}
-    result = {}
-    current_key = None
-    current_list = None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        if stripped.endswith(":") and not stripped.startswith("-"):
-            if current_list is not None and current_key:
-                result[current_key] = current_list
-            current_key = stripped[:-1].strip()
-            current_list = []
-            continue
-        if stripped.startswith("- "):
-            if current_list is not None:
-                item = stripped[2:].strip()
-                try:
-                    item = json.loads(item)
-                except (json.JSONDecodeError, ValueError):
-                    pass
-                current_list.append(item)
-            continue
-        if ":" in stripped and current_list is not None:
-            if current_key and current_list is not None:
-                result[current_key] = current_list
-                current_list = None
-            key, _, val = stripped.partition(":")
-            result[key.strip()] = val.strip()
-            current_key = None
-        elif ":" in stripped:
-            key, _, val = stripped.partition(":")
-            result[key.strip()] = val.strip()
-    if current_key and current_list is not None:
-        result[current_key] = current_list
-    return result
+    try:
+        result = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return result if isinstance(result, dict) else {}
+    except yaml.YAMLError:
+        return {}
 
 
 def _constitution_template(project_name: str) -> str:

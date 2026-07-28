@@ -9,6 +9,7 @@ description = "Development methodology toolkit combining Spec-Driven Development
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
+dependencies = ["pyyaml>=6.0"]
 authors = [
     { name = "Rafi Permana", email = "rafipermana456@gmail.com" },
 ]
