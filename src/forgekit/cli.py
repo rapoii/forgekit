@@ -2,6 +2,7 @@
 
 Usage:
     forgekit init              Initialize .forgekit/ in current project
+    forgekit install-hermes    Install skills + auto-trigger for Hermes Agent
     forgekit <command>         Run a specific phase
     forgekit run               Run full pipeline
     forgekit status            Show project status
@@ -11,15 +12,18 @@ Usage:
 import os
 import sys
 import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 
 FORGEKIT_DIR = ".forgekit"
 FORGEKIT_VERSION = "0.1.0"
+SKILLS_DIR_NAME = "skills"
 
 COMMANDS = {
     # Meta commands
     "init": "Initialize .forgekit/ in current project",
+    "install-hermes": "Install skills + auto-trigger for Hermes Agent",
     "status": "Show project forgekit status",
     "list": "List all available commands",
     "run": "Run full pipeline (interactive)",
@@ -54,6 +58,65 @@ PHASES = {
     "completion": ["verify", "converge", "finish", "publish"],
 }
 
+# Hermes auto-trigger content — injected into AGENTS.md (NOT SOUL.md)
+HERMES_AGENTS_MD_CONTENT = """# Forgekit — Development Methodology
+
+This project uses [Forgekit](https://github.com/rapoii/forgekit) for structured development.
+
+## Auto-Trigger Rules
+
+**When the user expresses intent to build something NEW**, load the `forgekit-bootstrap` skill FIRST:
+
+Trigger phrases (case-insensitive):
+- "mau bikin X", "mau buat X"
+- "I want to build X", "I want to create X"
+- "bikin website", "bikin app", "bikin bot", "bikin tool"
+- "help me build X", "let's start a new project"
+- "/forgekit", "forgekit start"
+
+**Do NOT trigger for:** bug fixes, single-line changes, technical questions, existing project modifications.
+
+## Pipeline
+
+When triggered, follow the Forgekit pipeline in order:
+1. `/forgekit.constitution` — project principles
+2. `/forgekit.brainstorm` — explore approaches
+3. `/forgekit.clarify` — resolve ambiguities
+4. `/forgekit.specify` — formal requirements
+5. `/forgekit.analyze` — consistency check
+6. `/forgekit.checklist` — quality gates
+7. `/forgekit.plan` — architecture + tasks
+8. `/forgekit.tdd` — test-driven development
+9. `/forgekit.tasks` — bite-sized task list
+10. `/forgekit.implement` — subagent execution
+11. `/forgekit.review` — code review
+12. `/forgekit.verify` — pre-completion check
+13. `/forgekit.converge` — spec vs reality
+14. `/forgekit.finish` — git cleanup
+
+Not every feature needs all steps. Small features: specify → implement → review.
+"""
+
+HERMES_SOUL_MD_SECTION = """
+
+## Forgekit — Auto-Trigger Wajib
+
+**Setiap kali user bilang "mau bikin X", "I want to build X", atau ekspresi intent untuk membuat/membangun sesuatu yang BARU:**
+
+1. **WAJIB load `forgekit-bootstrap` skill** — jangan skip, jangan langsung nge-code.
+2. Bootstrap skill akan mendeteksi state project dan route ke skill yang tepat.
+3. Ikuti pipeline Forgekit sesuai skill instructions.
+4. Jangan loncat tahap. Setiap tahap menghasilkan artifact di `.forgekit/`.
+
+**Trigger phrases (case-insensitive):**
+- "mau bikin X", "mau buat X", "I want to build X", "I want to create X"
+- "bikin website", "bikin app", "bikin bot", "bikin tool"
+- "help me build X", "let's start a new project"
+- "/forgekit", "forgekit start"
+
+**PENGECECUALIAN:** Fix bug kecil, ubah satu baris code, tanya teknis — JANGAN trigger.
+"""
+
 
 def get_forgekit_dir() -> Path:
     """Get the .forgekit directory path."""
@@ -63,6 +126,173 @@ def get_forgekit_dir() -> Path:
 def is_initialized() -> bool:
     """Check if forgekit is initialized in current directory."""
     return get_forgekit_dir().is_dir()
+
+
+def get_hermes_home() -> Path:
+    """Get Hermes home directory."""
+    # Check HERMES_HOME env var first
+    env_home = os.environ.get("HERMES_HOME")
+    if env_home:
+        return Path(env_home)
+    # Default: ~/.hermes
+    return Path.home() / ".hermes"
+
+
+def get_package_skills_dir() -> Path:
+    """Get the skills directory from the installed package."""
+    # Skills are bundled with the package
+    # Look relative to this file
+    this_dir = Path(__file__).parent
+    skills_dir = this_dir / SKILLS_DIR_NAME
+    if skills_dir.exists():
+        return skills_dir
+    # Fallback: look in the source tree
+    source_skills = this_dir.parent.parent / SKILLS_DIR_NAME
+    if source_skills.exists():
+        return source_skills
+    # Fallback: look in the project root (for development)
+    project_skills = Path.cwd() / SKILLS_DIR_NAME
+    if project_skills.exists():
+        return project_skills
+    return None
+
+
+def cmd_install_hermes(args):
+    """Install forgekit skills + auto-trigger for Hermes Agent."""
+    hermes_home = get_hermes_home()
+    hermes_skills = hermes_home / "skills"
+    force = "--force" in args
+    skip_soul = "--skip-soul" in args
+
+    print(f"""
+  Forgekit — Hermes Agent Installer
+  =================================
+""")
+
+    # Check Hermes home exists
+    if not hermes_home.exists():
+        print(f"  ERROR: Hermes home not found at {hermes_home}")
+        print(f"  Make sure Hermes Agent is installed first.")
+        return
+
+    # Find package skills
+    pkg_skills = get_package_skills_dir()
+    if pkg_skills is None:
+        print(f"  ERROR: Cannot find forgekit skills directory.")
+        print(f"  Expected at: {Path(__file__).parent / SKILLS_DIR_NAME}")
+        print(f"  Try reinstalling: uv tool install forgekit --force --from git+https://github.com/rapoii/forgekit.git")
+        return
+
+    # Step 1: Copy skills
+    print(f"  Step 1: Installing skills to {hermes_skills}")
+    installed = 0
+    skipped = 0
+    for skill_dir in sorted(pkg_skills.iterdir()):
+        if not skill_dir.is_dir() or not skill_dir.name.startswith("forgekit-"):
+            continue
+        dest = hermes_skills / skill_dir.name
+        if dest.exists() and not force:
+            skipped += 1
+            continue
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(skill_dir, dest)
+        installed += 1
+        print(f"    + {skill_dir.name}")
+
+    print(f"\n  Installed: {installed} skills")
+    if skipped:
+        print(f"  Skipped: {skipped} (already exist, use --force to overwrite)")
+
+    # Step 2: Create/update AGENTS.md in home directory (global trigger)
+    print(f"\n  Step 2: Setting up auto-trigger")
+    agents_md = Path.home() / "AGENTS.md"
+    forgekit_marker = "<!-- FORGEKIT-AUTO-TRIGGER -->"
+
+    if agents_md.exists():
+        existing = agents_md.read_text(encoding="utf-8")
+        if forgekit_marker in existing:
+            if force:
+                # Replace existing forgekit section
+                start = existing.find(forgekit_marker)
+                end_marker = forgekit_marker.replace("<!--", "<!-- /")
+                end = existing.find(end_marker, start + 1)
+                if end != -1:
+                    new_content = existing[:start] + forgekit_marker + "\n" + HERMES_AGENTS_MD_CONTENT + "\n" + end_marker + existing[end + len(end_marker):]
+                else:
+                    new_content = existing.rstrip() + "\n\n" + forgekit_marker + "\n" + HERMES_AGENTS_MD_CONTENT + "\n" + end_marker + "\n"
+                agents_md.write_text(new_content, encoding="utf-8")
+                print(f"    Updated {agents_md}")
+            else:
+                print(f"    Already configured in {agents_md} (use --force to update)")
+        else:
+            # Append forgekit section
+            append = "\n\n" + forgekit_marker + "\n" + HERMES_AGENTS_MD_CONTENT + "\n" + forgekit_marker.replace("<!--", "<!-- /") + "\n"
+            with open(agents_md, "a", encoding="utf-8") as f:
+                f.write(append)
+            print(f"    Appended to {agents_md}")
+    else:
+        # Create new
+        content = forgekit_marker + "\n" + HERMES_AGENTS_MD_CONTENT + "\n" + forgekit_marker.replace("<!--", "<!-- /") + "\n"
+        agents_md.write_text(content, encoding="utf-8")
+        print(f"    Created {agents_md}")
+
+    # Step 3: Handle SOUL.md (careful!)
+    print(f"\n  Step 3: SOUL.md check")
+    soul_md = hermes_home / "SOUL.md"
+
+    if skip_soul:
+        print(f"    Skipped (--skip-soul)")
+    elif soul_md.exists():
+        existing = soul_md.read_text(encoding="utf-8")
+        if "Forgekit" in existing:
+            print(f"    Already has Forgekit section — skipping")
+        else:
+            # Ask user
+            print(f"    SOUL.md exists at {soul_md}")
+            print(f"    Forgekit can append a small auto-trigger section.")
+            print(f"    This adds ~15 lines. Your existing content is NOT modified.")
+            print()
+            answer = input("    Append Forgekit trigger to SOUL.md? [y/N] ").strip().lower()
+            if answer in ("y", "yes"):
+                with open(soul_md, "a", encoding="utf-8") as f:
+                    f.write(HERMES_SOUL_MD_SECTION)
+                print(f"    Appended to {soul_md}")
+            else:
+                print(f"    Skipped. Auto-trigger works via AGENTS.md instead.")
+    else:
+        # No SOUL.md — create one with just forgekit section
+        soul_md.write_text("# Hermes Agent\n" + HERMES_SOUL_MD_SECTION, encoding="utf-8")
+        print(f"    Created {soul_md} with Forgekit trigger")
+
+    # Step 4: Verify
+    print(f"\n  Step 4: Verification")
+    skill_count = len([d for d in hermes_skills.iterdir() if d.name.startswith("forgekit-")]) if hermes_skills.exists() else 0
+    agents_ok = agents_md.exists() and "forgekit-bootstrap" in agents_md.read_text(encoding="utf-8")
+    soul_ok = soul_md.exists() and ("Forgekit" in soul_md.read_text(encoding="utf-8") or skip_soul)
+
+    print(f"    Skills installed: {skill_count}/20")
+    print(f"    AGENTS.md auto-trigger: {'OK' if agents_ok else 'MISSING'}")
+    print(f"    SOUL.md: {'OK' if soul_ok else 'Skipped'}")
+
+    if skill_count == 20 and agents_ok:
+        print(f"""
+  Forgekit installed for Hermes Agent!
+
+  How it works:
+    - When you say "mau bikin X" or "I want to build X",
+      the agent automatically loads forgekit-bootstrap skill
+    - Bootstrap routes to the right phase (constitution, brainstorm, etc.)
+    - Each phase generates artifacts in .forgekit/
+
+  Try it:
+    Say "mau bikin calculator" to your Hermes agent.
+
+  Manual trigger:
+    /forgekit.start or /skill forgekit-bootstrap
+""")
+    else:
+        print(f"\n  WARNING: Installation incomplete. Check errors above.")
 
 
 def cmd_init(args):
@@ -107,7 +337,7 @@ def cmd_init(args):
     if not spec_path.exists():
         spec_path.write_text("# Specification\n\nNo active specification yet. Run `/forgekit.specify` to create one.\n", encoding="utf-8")
 
-    # Create .hermes.md (Hermes Agent project context)
+    # Create .hermes.md (project-level context)
     hermes_md = Path.cwd() / ".hermes.md"
     if not hermes_md.exists():
         hermes_md.write_text(
@@ -200,7 +430,7 @@ def cmd_list(args):
             print(f"    forgekit {cmd_name:<20s} {desc}")
         print()
     print(f"  META")
-    for cmd_name in ["init", "status", "list", "run"]:
+    for cmd_name in ["init", "install-hermes", "status", "list", "run"]:
         desc = COMMANDS.get(cmd_name, "")
         print(f"    forgekit {cmd_name:<20s} {desc}")
     print()
@@ -259,8 +489,7 @@ def cmd_phase(args):
         print(f"  Run 'forgekit list' to see all commands")
         return
 
-    if cmd_name in ("init", "status", "list", "run"):
-        # Handled by dedicated functions
+    if cmd_name in ("init", "install-hermes", "status", "list", "run"):
         return
 
     if not is_initialized():
@@ -283,7 +512,6 @@ def cmd_phase(args):
     /skill forgekit-{cmd_name}
 """)
 
-    # Update config with phase tracking
     if cmd_name not in config.get("phases_completed", []):
         config.setdefault("phases_completed", []).append(cmd_name)
         _write_yaml(fk_dir / "config.yaml", config)
@@ -301,11 +529,12 @@ def main():
   Usage: forgekit <command> [options]
 
   Commands:
-    init        Initialize .forgekit/ in current project
-    status      Show project status
-    list        List all available commands
-    run         Show full pipeline overview
-    <command>   Run a specific phase (see 'forgekit list')
+    init              Initialize .forgekit/ in current project
+    install-hermes    Install skills + auto-trigger for Hermes Agent
+    status            Show project status
+    list              List all available commands
+    run               Show full pipeline overview
+    <command>         Run a specific phase (see 'forgekit list')
 
   Slash commands (in AI agents):
     /forgekit.<command>   Run phase via skill
@@ -319,6 +548,8 @@ def main():
 
     if cmd == "init":
         cmd_init(rest)
+    elif cmd == "install-hermes":
+        cmd_install_hermes(rest)
     elif cmd == "status":
         cmd_status(rest)
     elif cmd == "list":
@@ -378,7 +609,6 @@ def _read_yaml(path: Path) -> dict:
                 current_list.append(item)
             continue
         if ":" in stripped and current_list is not None:
-            # This means the list is done, we're in a new key
             if current_key and current_list is not None:
                 result[current_key] = current_list
                 current_list = None
