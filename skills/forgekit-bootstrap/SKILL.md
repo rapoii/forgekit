@@ -17,6 +17,7 @@ Trigger when the user says ANY of these (or similar):
 - "I want to build X"
 - "I want to create X"
 - "mau bikin X" / "mau buat X"
+- "bikin website", "bikin app", "bikin bot", "bikin tool"
 - "let's start a new project"
 - "help me build X"
 - "new feature: X"
@@ -24,7 +25,7 @@ Trigger when the user says ANY of these (or similar):
 - Any expression of intent to create/build/design something
 
 Also trigger when:
-- User types `/forgekit` or `/forgekit.start`
+- User types `/forgekit` or `/forgekit.start` or `forgekit start`
 - User asks "where do I start?"
 - User is confused about which Forgekit command to use
 
