@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "forgekit"
+version = "0.1.0"
+description = "Development methodology toolkit combining Spec-Driven Development with autonomous agent workflows. A fusion of Superpowers and Spec Kit."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Rafi Permana", email = "rafipermana456@gmail.com" },
+]
+keywords = ["development", "methodology", "spec-driven", "ai-agent", "workflow", "tdd", "planning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/rapoii/forgekit"
+Repository = "https://github.com/rapoii/forgekit"
+Issues = "https://github.com/rapoii/forgekit/issues"
+
+[project.scripts]
+forgekit = "forgekit.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/forgekit"]
