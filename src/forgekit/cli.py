@@ -565,16 +565,22 @@ def _write_yaml(path: Path, data: dict):
     lines = []
     for key, value in data.items():
         if isinstance(value, list):
-            lines.append(f"{key}:")
-            for item in value:
-                if isinstance(item, dict):
-                    lines.append(f"  - {json.dumps(item)}")
-                else:
-                    lines.append(f"  - {item}")
+            if not value:
+                lines.append(f"{key}: []")
+            else:
+                lines.append(f"{key}:")
+                for item in value:
+                    if isinstance(item, dict):
+                        lines.append(f"  - {json.dumps(item)}")
+                    else:
+                        lines.append(f"  - {item}")
         elif isinstance(value, dict):
-            lines.append(f"{key}:")
-            for k, v in value.items():
-                lines.append(f"  {k}: {v}")
+            if not value:
+                lines.append(f"{key}: {{}}")
+            else:
+                lines.append(f"{key}:")
+                for k, v in value.items():
+                    lines.append(f"  {k}: {v}")
         elif value is None:
             lines.append(f"{key}: null")
         else:
