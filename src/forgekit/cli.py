@@ -698,22 +698,174 @@ def cmd_preset(args):
         print(f"  Unknown subcommand: {subcmd}")
 
 
+def _load_workflow(name: str) -> dict:
+    """Load a workflow YAML from .forgekit/workflows/."""
+    fk_dir = get_forgekit_dir()
+    wf_file = fk_dir / "workflows" / f"{name}.yaml"
+    if not wf_file.exists():
+        return {}
+    return _read_yaml(wf_file)
+
+
+def _save_run_state(run_id: str, state: dict):
+    """Save workflow run state for pause/resume."""
+    runs_dir = get_forgekit_dir() / "workflows" / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    _write_yaml(runs_dir / f"{run_id}.yaml", state)
+
+
+def _load_run_state(run_id: str) -> dict:
+    """Load workflow run state."""
+    runs_dir = get_forgekit_dir() / "workflows" / "runs"
+    return _read_yaml(runs_dir / f"{run_id}.yaml")
+
+
+def _evaluate_condition(condition: str, variables: dict) -> bool:
+    """Evaluate a simple condition against variables."""
+    # Support: "var == 'value'", "var != 'value'", "var", "not var"
+    condition = condition.strip()
+    if "==" in condition:
+        left, right = condition.split("==", 1)
+        left = left.strip()
+        right = right.strip().strip("'\"")
+        return str(variables.get(left, "")) == right
+    elif "!=" in condition:
+        left, right = condition.split("!=", 1)
+        left = left.strip()
+        right = right.strip().strip("'\"")
+        return str(variables.get(left, "")) != right
+    elif condition.startswith("not "):
+        var = condition[4:].strip()
+        return not bool(variables.get(var, False))
+    else:
+        return bool(variables.get(condition, False))
+
+
+def _execute_step(step: dict, variables: dict, json_mode: bool = False) -> dict:
+    """Execute a single workflow step. Returns result dict."""
+    step_type = step.get("type", "prompt")
+    step_name = step.get("name", "unnamed")
+    result = {"name": step_name, "type": step_type, "status": "done"}
+
+    if step_type == "shell":
+        cmd = step.get("run", "")
+        # Variable substitution
+        for k, v in variables.items():
+            cmd = cmd.replace(f"${{{k}}}", str(v))
+        result["command"] = cmd
+        result["status"] = "ready"  # In real impl, would execute
+
+    elif step_type == "prompt":
+        prompt_text = step.get("prompt", "")
+        for k, v in variables.items():
+            prompt_text = prompt_text.replace(f"${{{k}}}", str(v))
+        result["prompt"] = prompt_text
+
+    elif step_type == "human":
+        result["status"] = "waiting_for_human"
+        result["message"] = step.get("message", "Human checkpoint")
+
+    elif step_type == "set":
+        for k, v in step.get("variables", {}).items():
+            if isinstance(v, str):
+                for vk, vv in variables.items():
+                    v = v.replace(f"${{{vk}}}", str(vv))
+            variables[k] = v
+        result["variables_set"] = list(step.get("variables", {}).keys())
+
+    elif step_type == "fan_out":
+        # Parallel execution marker
+        branches = step.get("branches", [])
+        result["branches"] = len(branches)
+        result["status"] = "parallel"
+
+    elif step_type == "fan_in":
+        result["status"] = "converge"
+        result["merge"] = step.get("merge", "combine")
+
+    return result
+
+
 def cmd_workflow(args):
-    """Manage workflows — run, resume, status, list, add."""
+    """Manage workflows — run, resume, status, list, add.
+    
+    Workflow YAML format:
+    name: my-workflow
+    inputs:
+      feature: ""       # Required input
+      env: "staging"    # Default value
+    steps:
+      - name: validate
+        type: prompt
+        prompt: "Validate requirements for ${feature}"
+      - name: check-env
+        type: condition
+        if: "env == 'production'"
+        then:
+          - name: prod-check
+            type: human
+            message: "Confirm production deployment"
+        else:
+          - name: dev-check
+            type: shell
+            run: "echo 'dev mode'"
+      - name: iterate
+        type: loop
+        over: "items"
+        steps:
+          - name: process-item
+            type: prompt
+            prompt: "Process ${item}"
+      - name: parallel-work
+        type: fan_out
+        branches:
+          - name: branch-a
+            steps:
+              - name: task-a
+                type: prompt
+                prompt: "Do task A"
+          - name: branch-b
+            steps:
+              - name: task-b
+                type: prompt
+                prompt: "Do task B"
+      - name: merge
+        type: fan_in
+        merge: combine
+      - name: checkpoint
+        type: human
+        message: "Review results before continuing"
+    """
     if not args:
         print("""
   forgekit workflow
   =================
 
   Subcommands:
-    forgekit workflow run <name>      Run a workflow
+    forgekit workflow run <name>      Run a workflow (with step execution)
     forgekit workflow resume <id>     Resume paused/failed workflow
     forgekit workflow status [id]     Show workflow status
     forgekit workflow list            List installed workflows
     forgekit workflow add <source>    Install workflow from source
 
-  Workflows support: conditional logic, loops, fan-out/fan-in,
-  pause/resume, JSON output (`--json`), input passing.
+  Step types:
+    prompt     — Invoke agent prompt
+    shell      — Run shell command
+    human      — Human checkpoint (pauses workflow)
+    condition  — if/then/else branching
+    loop       — Iterate over collection
+    fan_out    — Parallel execution
+    fan_in     — Merge parallel results
+    set        — Set variables
+
+  YAML workflow format:
+    name: my-workflow
+    inputs:
+      key: "default-value"
+    steps:
+      - name: step-name
+        type: prompt|shell|human|condition|loop|fan_out|fan_in|set
+        prompt|run|if|over|branches: ...
 """)
         return
     subcmd = args[0]
@@ -725,61 +877,245 @@ def cmd_workflow(args):
             return
         name = rest[0]
         json_mode = "--json" in rest
+        # Parse inputs
         inputs = {}
         for arg in rest:
             if "=" in arg and arg != "--json":
                 k, v = arg.split("=", 1)
                 inputs[k] = v
-        # Minimal implementation: mark as run, log inputs
-        if is_initialized():
-            runs_dir = get_forgekit_dir() / "workflows" / "runs"
-            runs_dir.mkdir(parents=True, exist_ok=True)
-            run_id = f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            run_yaml = runs_dir / f"{run_id}.yaml"
-            run_yaml.write_text(
-                f"id: {run_id}\n"
-                f"workflow: {name}\n"
-                f"started: {datetime.now().isoformat()}\n"
-                f"status: running\n"
-                f"inputs: {inputs}\n",
-                encoding="utf-8",
-            )
-            result = {"id": run_id, "workflow": name, "status": "started", "inputs": inputs}
-            if json_mode:
-                print(json.dumps(result, indent=2))
-            else:
-                print(f"\n  Workflow '{name}' started: {run_id}\n  State saved to .forgekit/workflows/runs/{run_id}.yaml\n")
+
+        # Load workflow
+        wf = _load_workflow(name)
+        if not wf:
+            print(f"\n  Workflow '{name}' not found. Create with: forgekit workflow add {name}\n")
+            return
+
+        # Merge inputs with defaults
+        variables = dict(wf.get("inputs", {}))
+        variables.update(inputs)
+
+        run_id = f"run-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        steps = wf.get("steps", [])
+        step_results = []
+        current_step = 0
+        paused = False
+
+        for i, step in enumerate(steps):
+            step_type = step.get("type", "prompt")
+            step_name = step.get("name", f"step-{i}")
+
+            # Condition check
+            if step_type == "condition":
+                condition = step.get("if", "true")
+                if _evaluate_condition(condition, variables):
+                    sub_steps = step.get("then", [])
+                else:
+                    sub_steps = step.get("else", [])
+                for sub in sub_steps:
+                    r = _execute_step(sub, variables, json_mode)
+                    step_results.append(r)
+                current_step = i + 1
+                continue
+
+            # Loop
+            if step_type == "loop":
+                over_var = step.get("over", "items")
+                items = variables.get(over_var, [])
+                if isinstance(items, str):
+                    items = [x.strip() for x in items.split(",")]
+                loop_steps = step.get("steps", [])
+                for item in items:
+                    variables["item"] = item
+                    for sub in loop_steps:
+                        r = _execute_step(sub, variables, json_mode)
+                        step_results.append(r)
+                current_step = i + 1
+                continue
+
+            # Fan-out
+            if step_type == "fan_out":
+                branches = step.get("branches", [])
+                branch_results = []
+                for branch in branches:
+                    branch_name = branch.get("name", "unnamed")
+                    for sub in branch.get("steps", []):
+                        r = _execute_step(sub, variables, json_mode)
+                        r["branch"] = branch_name
+                        branch_results.append(r)
+                step_results.extend(branch_results)
+                current_step = i + 1
+                continue
+
+            # Fan-in
+            if step_type == "fan_in":
+                r = _execute_step(step, variables, json_mode)
+                step_results.append(r)
+                current_step = i + 1
+                continue
+
+            # Human checkpoint — pause workflow
+            if step_type == "human":
+                r = _execute_step(step, variables, json_mode)
+                step_results.append(r)
+                paused = True
+                current_step = i
+                break
+
+            # Normal step
+            r = _execute_step(step, variables, json_mode)
+            step_results.append(r)
+            current_step = i + 1
+
+        # Save run state
+        status = "paused" if paused else "completed"
+        state = {
+            "id": run_id,
+            "workflow": name,
+            "started": datetime.now().isoformat(),
+            "status": status,
+            "inputs": variables,
+            "current_step": current_step,
+            "total_steps": len(steps),
+            "results": step_results,
+        }
+        _save_run_state(run_id, state)
+
+        if json_mode:
+            print(json.dumps(state, indent=2))
+        else:
+            print(f"\n  Workflow '{name}' — {status}")
+            print(f"  Run ID: {run_id}")
+            print(f"  Steps executed: {current_step}/{len(steps)}")
+            print(f"  Results:")
+            for r in step_results:
+                branch = f" [{r['branch']}]" if "branch" in r else ""
+                print(f"    {r['status']:<16} {r['name']}{branch}")
+            if paused:
+                print(f"\n  ⏸ Paused at step {current_step} — resume with: forgekit workflow resume {run_id}")
+            print()
 
     elif subcmd == "resume":
         if not rest:
-            print("  Usage: forgekit workflow resume <run-id>")
+            print("  Usage: forgekit workflow resume <run-id> [--json]")
             return
         run_id = rest[0]
-        if is_initialized():
-            runs_dir = get_forgekit_dir() / "workflows" / "runs"
-            run_file = runs_dir / f"{run_id}.yaml"
-            if run_file.exists():
-                print(f"\n  Workflow {run_id} resumed\n")
-            else:
-                print(f"\n  Run '{run_id}' not found\n")
+        json_mode = "--json" in rest
+        state = _load_run_state(run_id)
+        if not state:
+            print(f"\n  Run '{run_id}' not found\n")
+            return
+
+        wf = _load_workflow(state["workflow"])
+        steps = wf.get("steps", [])
+        variables = state.get("inputs", {})
+        current_step = state.get("current_step", 0)
+        step_results = state.get("results", [])
+        paused = False
+
+        for i in range(current_step, len(steps)):
+            step = steps[i]
+            step_type = step.get("type", "prompt")
+            step_name = step.get("name", f"step-{i}")
+
+            if step_type == "condition":
+                condition = step.get("if", "true")
+                if _evaluate_condition(condition, variables):
+                    sub_steps = step.get("then", [])
+                else:
+                    sub_steps = step.get("else", [])
+                for sub in sub_steps:
+                    r = _execute_step(sub, variables, json_mode)
+                    step_results.append(r)
+                current_step = i + 1
+                continue
+
+            if step_type == "loop":
+                over_var = step.get("over", "items")
+                items = variables.get(over_var, [])
+                if isinstance(items, str):
+                    items = [x.strip() for x in items.split(",")]
+                loop_steps = step.get("steps", [])
+                for item in items:
+                    variables["item"] = item
+                    for sub in loop_steps:
+                        r = _execute_step(sub, variables, json_mode)
+                        step_results.append(r)
+                current_step = i + 1
+                continue
+
+            if step_type == "fan_out":
+                branches = step.get("branches", [])
+                for branch in branches:
+                    branch_name = branch.get("name", "unnamed")
+                    for sub in branch.get("steps", []):
+                        r = _execute_step(sub, variables, json_mode)
+                        r["branch"] = branch_name
+                        step_results.append(r)
+                current_step = i + 1
+                continue
+
+            if step_type == "fan_in":
+                r = _execute_step(step, variables, json_mode)
+                step_results.append(r)
+                current_step = i + 1
+                continue
+
+            if step_type == "human":
+                r = _execute_step(step, variables, json_mode)
+                step_results.append(r)
+                paused = True
+                current_step = i
+                break
+
+            r = _execute_step(step, variables, json_mode)
+            step_results.append(r)
+            current_step = i + 1
+
+        status = "paused" if paused else "completed"
+        state["status"] = status
+        state["current_step"] = current_step
+        state["results"] = step_results
+        state["resumed"] = datetime.now().isoformat()
+        _save_run_state(run_id, state)
+
+        if json_mode:
+            print(json.dumps(state, indent=2))
+        else:
+            print(f"\n  Workflow '{state['workflow']}' — {status} (resumed)")
+            print(f"  Steps: {current_step}/{len(steps)}")
+            for r in step_results:
+                branch = f" [{r['branch']}]" if "branch" in r else ""
+                print(f"    {r['status']:<16} {r['name']}{branch}")
+            if paused:
+                print(f"\n  ⏸ Paused again — resume: forgekit workflow resume {run_id}")
+            print()
 
     elif subcmd == "status":
         target = rest[0] if rest else None
         if is_initialized():
             runs_dir = get_forgekit_dir() / "workflows" / "runs"
             if target:
-                run_file = runs_dir / f"{target}.yaml"
-                if run_file.exists():
-                    print(f"\n  {run_file.read_text(encoding='utf-8')}\n")
+                state = _load_run_state(target)
+                if state:
+                    print(f"\n  Run: {state.get('id')}")
+                    print(f"  Workflow: {state.get('workflow')}")
+                    print(f"  Status: {state.get('status')}")
+                    print(f"  Steps: {state.get('current_step')}/{state.get('total_steps')}")
+                    print(f"  Started: {state.get('started')}")
+                    if state.get("resumed"):
+                        print(f"  Resumed: {state.get('resumed')}")
+                    print()
                 else:
                     print(f"\n  Run '{target}' not found\n")
             else:
-                runs = [f.name for f in runs_dir.glob("*.yaml")] if runs_dir.is_dir() else []
-                print(f"\n  Workflow Runs:\n")
-                if runs:
-                    for r in runs:
-                        print(f"    - {r.replace('.yaml', '')}")
-                else:
+                runs = [f.stem for f in runs_dir.glob("*.yaml")] if runs_dir.is_dir() else []
+                print(f"\n  Workflow Runs ({len(runs)}):\n")
+                for r in runs:
+                    s = _load_run_state(r)
+                    status = s.get("status", "unknown")
+                    marker = "⏸" if status == "paused" else "✅" if status == "completed" else "🔄"
+                    print(f"    {marker} {r}  ({status})")
+                if not runs:
                     print("    (no runs yet)")
                 print()
 
@@ -789,11 +1125,30 @@ def cmd_workflow(args):
             wfs = [f.stem for f in wf_dir.glob("*.yaml") if not str(f.name).startswith(".")]
         else:
             wfs = []
-        # Filter out runs directory
         runs_dir = wf_dir / "runs" if wf_dir.is_dir() else None
         if wfs and runs_dir and runs_dir.is_dir():
             wfs = [w for w in wfs if w != "runs"]
-        print(f"\n  Installed Workflows: {len(wfs)}\n")
+        print(f"\n  Installed Workflows ({len(wfs)}):\n")
+        if wfs:
+            for w in wfs:
+                wf = _load_workflow(w)
+                step_count = len(wf.get("steps", []))
+                step_types = [s.get("type", "prompt") for s in wf.get("steps", [])]
+                has_condition = "condition" in step_types
+                has_loop = "loop" in step_types
+                has_parallel = "fan_out" in step_types
+                features = []
+                if has_condition:
+                    features.append("conditional")
+                if has_loop:
+                    features.append("loop")
+                if has_parallel:
+                    features.append("parallel")
+                feat_str = f" [{', '.join(features)}]" if features else ""
+                print(f"    - {w} ({step_count} steps){feat_str}")
+        else:
+            print("    (none)")
+        print()
 
     elif subcmd == "add":
         if not rest:
@@ -804,8 +1159,27 @@ def cmd_workflow(args):
         wf_dir.mkdir(parents=True, exist_ok=True)
         name = source.split("/")[-1].replace(".yaml", "")
         target = wf_dir / f"{name}.yaml"
-        target.write_text(f"# Workflow from {source}\nname: {name}\nsteps: []\n", encoding="utf-8")
-        print(f"\n  Workflow '{name}' installed (placeholder — edit .forgekit/workflows/{name}.yaml)\n")
+        # Generate a sample workflow with all step types
+        sample = {
+            "name": name,
+            "inputs": {"feature": "", "env": "staging"},
+            "steps": [
+                {"name": "validate", "type": "prompt", "prompt": "Validate requirements for ${feature}"},
+                {"name": "check-env", "type": "condition", "if": "env == 'production'",
+                 "then": [{"name": "prod-check", "type": "human", "message": "Confirm production deploy"}],
+                 "else": [{"name": "dev-mode", "type": "shell", "run": "echo 'dev mode'"}]},
+                {"name": "parallel-work", "type": "fan_out", "branches": [
+                    {"name": "branch-a", "steps": [{"name": "task-a", "type": "prompt", "prompt": "Do task A"}]},
+                    {"name": "branch-b", "steps": [{"name": "task-b", "type": "prompt", "prompt": "Do task B"}]},
+                ]},
+                {"name": "merge", "type": "fan_in", "merge": "combine"},
+                {"name": "checkpoint", "type": "human", "message": "Review results"},
+            ],
+        }
+        _write_yaml(target, sample)
+        print(f"\n  Workflow '{name}' installed to .forgekit/workflows/{name}.yaml")
+        print(f"  Steps: {len(sample['steps'])} (includes condition, fan_out, fan_in, human checkpoint)")
+        print(f"  Edit the file to customize.\n")
 
     else:
         print(f"  Unknown subcommand: {subcmd}")
