@@ -529,7 +529,32 @@ def cmd_phase(args):
 # ==================== META COMMANDS (Phase 2-5) ====================
 
 def cmd_extension(args):
-    """Manage extensions — search, add, remove, list."""
+    """Manage extensions — search, add, remove, list, enable, disable.
+    
+    Extensions add new capabilities beyond core SDD:
+    - Domain-specific workflows (Jira, code review, V-Model)
+    - External tool integration (Docker, GitHub Actions)
+    - Additional commands and templates
+    
+    Catalog resolution: project-local > user > built-in.
+    Lifecycle: add → enable → disable → remove (idempotent).
+    """
+    # Built-in extension catalog (priority: lowest)
+    BUILTIN_EXTENSIONS = [
+        ("linting", "Add linting rules for Python and JS", ["forgekit-review"]),
+        ("formatting", "Add formatter enforcement", ["forgekit-implement"]),
+        ("testing", "Add testing framework setup", ["forgekit-tdd"]),
+        ("docker", "Add Docker support", ["forgekit-implement", "forgekit-publish"]),
+        ("github-actions", "Add CI/CD via GitHub Actions", ["forgekit-publish"]),
+        ("pre-commit", "Add pre-commit hooks", ["forgekit-implement"]),
+        ("bug", "Bug triage extension: assess → fix → validate", ["forgekit-debug"]),
+        ("v-model", "V-Model development methodology", ["forgekit-specify", "forgekit-verify"]),
+        ("jira", "Jira integration for issue tracking", ["forgekit-publish"]),
+        ("code-review", "Enhanced code review workflows", ["forgekit-review"]),
+        ("api-contracts", "API contract generation and validation", ["forgekit-specify"]),
+        ("research", "Research-driven development with paper citations", ["forgekit-brainstorm"]),
+    ]
+
     if not args:
         print("""
   forgekit extension
@@ -540,6 +565,12 @@ def cmd_extension(args):
     forgekit extension add <name>       Install extension
     forgekit extension remove <name>    Remove extension
     forgekit extension list             List installed extensions
+    forgekit extension enable <name>    Enable installed extension
+    forgekit extension disable <name>   Disable installed extension
+
+  Extensions: domain-specific workflows, external tool integrations,
+  additional commands. Installed to .forgekit/extensions/<name>.yaml.
+  Resolution order: project-local > user > built-in catalog.
 """)
         return
 
@@ -547,42 +578,51 @@ def cmd_extension(args):
     rest = args[1:]
 
     if subcmd == "search":
-        # Return list of known extensions
-        extensions = [
-            ("linting", "Add linting rules for Python and JS"),
-            ("formatting", "Add formatter enforcement"),
-            ("testing", "Add testing framework setup"),
-            ("docker", "Add Docker support"),
-            ("github-actions", "Add CI/CD via GitHub Actions"),
-            ("pre-commit", "Add pre-commit hooks"),
-        ]
-        if rest:
-            query = rest[0].lower()
-            ext_matches = [e for e in extensions if query in e[0] or query in e[1].lower()]
-        else:
-            ext_matches = extensions
+        query = rest[0].lower() if rest else None
+        ext_matches = BUILTIN_EXTENSIONS
+        if query:
+            ext_matches = [e for e in ext_matches if query in e[0] or query in e[1].lower() or query in " ".join(e[2]).lower()]
         print("\n  Available Extensions:\n")
-        for name, desc in ext_matches:
-            print(f"    {name:<20} {desc}")
+        for name, desc, deps in ext_matches:
+            dep_str = f" (requires: {', '.join(deps)})" if deps else ""
+            print(f"    {name:<16} {desc}{dep_str}")
+        if query and not ext_matches:
+            print(f"    (no extensions matching '{query}')")
         print()
 
     elif subcmd == "add":
         if not rest:
             print("  Usage: forgekit extension add <name>")
             return
-        name = rest[0]
+        name = rest[0].lower()
         extensions_dir = get_forgekit_dir() / "extensions"
         extensions_dir.mkdir(parents=True, exist_ok=True)
         ext_yaml = extensions_dir / f"{name}.yaml"
-        ext_yaml.write_text(
-            f"# Extension: {name}\n"
-            f"version: 0.1.0\n"
-            f"description: User-installed extension\n"
-            f"skills: []\n"
-            f"templates: []\n",
-            encoding="utf-8",
-        )
-        # Update config
+        # Find from catalog
+        catalog_entry = next((e for e in BUILTIN_EXTENSIONS if e[0] == name), None)
+        if catalog_entry:
+            _, desc, deps = catalog_entry
+            ext_data = {
+                "name": name,
+                "version": "0.1.0",
+                "description": desc,
+                "dependencies": deps,
+                "enabled": True,
+                "installed": datetime.now().isoformat(),
+                "source": "builtin",
+            }
+            _write_yaml(ext_yaml, ext_data)
+        else:
+            ext_data = {
+                "name": name,
+                "version": "0.1.0",
+                "description": "User-defined extension",
+                "dependencies": [],
+                "enabled": True,
+                "installed": datetime.now().isoformat(),
+                "source": "user",
+            }
+            _write_yaml(ext_yaml, ext_data)
         if is_initialized():
             fk_dir = get_forgekit_dir()
             config = _read_yaml(fk_dir / "config.yaml")
@@ -590,34 +630,83 @@ def cmd_extension(args):
             if name not in exts:
                 exts.append(name)
                 _write_yaml(fk_dir / "config.yaml", config)
-        print(f"\n  Extension '{name}' installed (config only — see .forgekit/extensions/{name}.yaml)\n")
+        print(f"\n  Extension '{name}' installed to .forgekit/extensions/{name}.yaml")
+        if catalog_entry:
+            deps = catalog_entry[2]
+            if deps:
+                print(f"  Dependencies: {', '.join(deps)}")
+        print(f"  Status: enabled\n")
 
     elif subcmd == "remove":
         if not rest:
             print("  Usage: forgekit extension remove <name>")
             return
-        name = rest[0]
+        name = rest[0].lower()
         extensions_dir = get_forgekit_dir() / "extensions"
         ext_yaml = extensions_dir / f"{name}.yaml"
         if ext_yaml.exists():
             ext_yaml.unlink()
+            # Remove from config
+            if is_initialized():
+                fk_dir = get_forgekit_dir()
+                config = _read_yaml(fk_dir / "config.yaml")
+                exts = config.get("extensions", [])
+                if name in exts:
+                    exts.remove(name)
+                    _write_yaml(fk_dir / "config.yaml", config)
             print(f"\n  Extension '{name}' removed\n")
         else:
             print(f"\n  Extension '{name}' not found\n")
 
     elif subcmd == "list":
-        if is_initialized():
-            config = _read_yaml(get_forgekit_dir() / "config.yaml")
-            exts = config.get("extensions", [])
-        else:
-            exts = []
-        print("\n  Installed Extensions:\n")
-        if exts:
-            for e in exts:
-                print(f"    - {e}")
+        extensions_dir = get_forgekit_dir() / "extensions"
+        installed = []
+        if extensions_dir.is_dir():
+            for f in sorted(extensions_dir.glob("*.yaml")):
+                data = _read_yaml(f)
+                name = data.get("name", f.stem)
+                desc = data.get("description", "")
+                enabled = data.get("enabled", True)
+                source = data.get("source", "unknown")
+                status = "✅ enabled" if enabled else "❌ disabled"
+                installed.append((name, desc, status, source))
+        print(f"\n  Installed Extensions ({len(installed)}):\n")
+        if installed:
+            for name, desc, status, source in installed:
+                print(f"    {status}  {name:<16} {desc}  [{source}]")
         else:
             print("    (none)")
         print()
+
+    elif subcmd == "enable":
+        if not rest:
+            print("  Usage: forgekit extension enable <name>")
+            return
+        name = rest[0].lower()
+        extensions_dir = get_forgekit_dir() / "extensions"
+        ext_yaml = extensions_dir / f"{name}.yaml"
+        if ext_yaml.exists():
+            data = _read_yaml(ext_yaml)
+            data["enabled"] = True
+            _write_yaml(ext_yaml, data)
+            print(f"\n  Extension '{name}' enabled\n")
+        else:
+            print(f"\n  Extension '{name}' not found\n")
+
+    elif subcmd == "disable":
+        if not rest:
+            print("  Usage: forgekit extension disable <name>")
+            return
+        name = rest[0].lower()
+        extensions_dir = get_forgekit_dir() / "extensions"
+        ext_yaml = extensions_dir / f"{name}.yaml"
+        if ext_yaml.exists():
+            data = _read_yaml(ext_yaml)
+            data["enabled"] = False
+            _write_yaml(ext_yaml, data)
+            print(f"\n  Extension '{name}' disabled\n")
+        else:
+            print(f"\n  Extension '{name}' not found\n")
 
     else:
         print(f"  Unknown subcommand: {subcmd}")
