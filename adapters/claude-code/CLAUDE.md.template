@@ -1,0 +1,16 @@
+# Forgekit — Claude Code Integration
+
+This project uses [Forgekit](https://github.com/rapoii/forgekit) for structured development.
+
+## Auto-Trigger Rules
+
+When the user expresses intent to build something NEW, load the `forgekit-bootstrap` skill FIRST:
+- "mau bikin X", "mau buat X", "I want to build X"
+- "bikin website", "bikin app", "bikin bot"
+- "/forgekit", "forgekit start"
+
+## Skills Location
+Load skills from: `.claude/skills/forgekit-*/SKILL.md`
+
+## Pipeline
+constitution → brainstorm → clarify → specify → analyze → checklist → plan → tdd → tasks → implement → review → verify → converge → finish

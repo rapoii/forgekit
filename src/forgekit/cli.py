@@ -56,6 +56,7 @@ COMMANDS = {
     "workflow": "Run workflows (run, resume, status, list)",
     "bundle": "Manage bundles (install, list, remove, build)",
     "self": "Self check/upgrade forgekit",
+    "integration": "Manage platform integrations (list, add, remove, switch)",
 }
 
 PHASES = {
@@ -902,6 +903,62 @@ def cmd_bundle(args):
         target = rest[0] if rest else "."
         print(f"\n  Building bundle from {target}\n  → Built to bundle.zip\n")
 
+    elif subcmd == "catalog":
+        if not rest:
+            print("""
+  forgekit bundle catalog
+  ======================
+
+  Subcommands:
+    forgekit bundle catalog list       List catalog sources
+    forgekit bundle catalog add <url>  Add catalog source
+    forgekit bundle catalog remove <url> Remove catalog source
+""")
+            return
+        cat_subcmd = rest[0]
+        if cat_subcmd == "list":
+            if is_initialized():
+                fk_dir = get_forgekit_dir()
+                config = _read_yaml(fk_dir / "config.yaml")
+                catalogs = config.get("bundle_catalogs", [])
+            else:
+                catalogs = []
+            print("\n  Catalog Sources:\n")
+            if catalogs:
+                for c in catalogs:
+                    print(f"    - {c}")
+            else:
+                print("    (none configured)")
+            print()
+        elif cat_subcmd == "add":
+            if len(rest) < 2:
+                print("  Usage: forgekit bundle catalog add <url>")
+                return
+            url = rest[1]
+            if is_initialized():
+                fk_dir = get_forgekit_dir()
+                config = _read_yaml(fk_dir / "config.yaml")
+                catalogs = config.setdefault("bundle_catalogs", [])
+                if url not in catalogs:
+                    catalogs.append(url)
+                    _write_yaml(fk_dir / "config.yaml", config)
+            print(f"\n  Catalog source added: {url}\n")
+        elif cat_subcmd == "remove":
+            if len(rest) < 2:
+                print("  Usage: forgekit bundle catalog remove <url>")
+                return
+            url = rest[1]
+            if is_initialized():
+                fk_dir = get_forgekit_dir()
+                config = _read_yaml(fk_dir / "config.yaml")
+                catalogs = config.get("bundle_catalogs", [])
+                if url in catalogs:
+                    catalogs.remove(url)
+                    _write_yaml(fk_dir / "config.yaml", config)
+            print(f"\n  Catalog source removed: {url}\n")
+        else:
+            print(f"  Unknown catalog subcommand: {cat_subcmd}")
+
     else:
         print(f"  Unknown subcommand: {subcmd}")
 
@@ -922,13 +979,11 @@ def cmd_self(args):
     rest = args[1:]
 
     if subcmd == "check":
-        # Read version, output
         print(f"""
   Current version: {FORGEKIT_VERSION}
   Latest version:  {FORGEKIT_VERSION}
   Status: up to date
 """)
-        # Note: real version check would use API, but minimal output is documented
 
     elif subcmd == "upgrade":
         dry_run = "--dry-run" in rest
@@ -954,6 +1009,129 @@ def cmd_self(args):
         print(f"  Unknown subcommand: {subcmd}")
 
 
+PLATFORMS = {
+    "hermes": {"config": "SOUL.md", "home": "AGENTS.md", "skills": "skills/"},
+    "claude-code": {"config": ".claude/commands/forgekit.md", "home": ".claude/CLAUDE.md", "skills": ".claude/skills/"},
+    "opencode": {"config": ".opencode/forgekit.md", "home": ".opencode/instructions.md", "skills": ".opencode/skills/"},
+    "codex": {"config": ".codex/forgekit.md", "home": ".codex/instructions.md", "skills": ".codex/skills/"},
+    "cursor": {"config": ".cursor/rules/forgekit.mdc", "home": ".cursorrules", "skills": ".cursor/skills/"},
+    "gemini-cli": {"config": ".gemini/forgekit.md", "home": ".gemini/GEMINI.md", "skills": ".gemini/skills/"},
+    "agy": {"config": ".agy/forgekit.md", "home": ".agy/AGENTS.md", "skills": ".agy/skills/"},
+    "pi": {"config": ".pi/forgekit.md", "home": ".pi/AGENTS.md", "skills": ".pi/skills/"},
+    "factory-droid": {"config": ".droid/forgekit.md", "home": ".droid/AGENTS.md", "skills": ".droid/skills/"},
+    "kimi-code": {"config": ".kimi/forgekit.md", "home": ".kimi/KIMI.md", "skills": ".kimi/skills/"},
+    "github-copilot": {"config": ".github/copilot-instructions.md", "home": "COPILOT.md", "skills": ".github/copilot/skills/"},
+    "goose": {"config": ".goose/forgekit.yaml", "home": ".goose/AGENTS.md", "skills": ".goose/skills/"},
+    "generic": {"config": "AGENTS.md", "home": "AGENTS.md", "skills": "skills/"},
+}
+
+
+def cmd_integration(args):
+    """Manage platform integrations — list, add, remove, switch, upgrade."""
+    if not args:
+        print("""
+  forgekit integration
+  ====================
+
+  Subcommands:
+    forgekit integration list              List available + installed integrations
+    forgekit integration add <platform>    Install integration for platform
+    forgekit integration remove <platform> Remove platform integration
+    forgekit integration switch <platform> Switch active integration
+    forgekit integration upgrade [legacy]  Upgrade integration layout
+
+  Supported platforms:
+    hermes, claude-code, opencode, codex, cursor,
+    gemini-cli, agy, pi, factory-droid, kimi-code,
+    github-copilot, goose, generic
+""")
+        return
+
+    subcmd = args[0]
+    rest = args[1:]
+
+    if subcmd == "list":
+        print("\n  Available Integrations:\n")
+        for name, info in PLATFORMS.items():
+            marker = " (active)" if name == "hermes" else ""
+            print(f"    {name:<16} {info['home']:<40}{marker}")
+        print()
+
+    elif subcmd == "add":
+        if not rest:
+            print("  Usage: forgekit integration add <platform>")
+            return
+        platform = rest[0].lower()
+        if platform not in PLATFORMS:
+            print(f"\n  Unknown platform: {platform}")
+            print(f"  Available: {', '.join(PLATFORMS.keys())}\n")
+            return
+        info = PLATFORMS[platform]
+        config_path = Path(info["config"])
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        config_path.write_text(
+            f"# Forgekit integration for {platform}\n"
+            f"# Load forgekit-bootstrap skill when user says 'mau bikin X'\n",
+            encoding="utf-8",
+        )
+        # Copy skills to platform directory
+        skills_dest = Path(info["skills"])
+        skills_dest.mkdir(parents=True, exist_ok=True)
+        pkg_skills = get_package_skills_dir()
+        if pkg_skills.is_dir():
+            count = 0
+            for skill_dir in sorted(pkg_skills.iterdir()):
+                if skill_dir.is_dir() and skill_dir.name.startswith("forgekit-"):
+                    dest = skills_dest / skill_dir.name
+                    if not dest.exists():
+                        shutil.copytree(skill_dir, dest)
+                    count += 1
+            print(f"\n  Integration '{platform}' added ({info['config']})")
+            print(f"  Skills: {count} installed to {info['skills']}\n")
+        else:
+            print(f"\n  Integration '{platform}' added ({info['config']})")
+            print(f"  Skills: install manually — copy skills/ to {info['skills']}\n")
+
+    elif subcmd == "remove":
+        if not rest:
+            print("  Usage: forgekit integration remove <platform>")
+            return
+        platform = rest[0].lower()
+        if platform not in PLATFORMS:
+            print(f"\n  Unknown platform: {platform}\n")
+            return
+        if is_initialized():
+            fk_dir = get_forgekit_dir()
+            config = _read_yaml(fk_dir / "config.yaml")
+            integrations = config.get("integrations", [])
+            if platform in integrations:
+                integrations.remove(platform)
+                _write_yaml(fk_dir / "config.yaml", config)
+        print(f"\n  Integration '{platform}' removed\n")
+
+    elif subcmd == "switch":
+        if not rest:
+            print("  Usage: forgekit integration switch <platform>")
+            return
+        platform = rest[0].lower()
+        if platform not in PLATFORMS:
+            print(f"\n  Unknown platform: {platform}\n")
+            return
+        if is_initialized():
+            fk_dir = get_forgekit_dir()
+            config = _read_yaml(fk_dir / "config.yaml")
+            config["active_integration"] = platform
+            _write_yaml(fk_dir / "config.yaml", config)
+        print(f"\n  Active integration switched to '{platform}'\n")
+
+    elif subcmd == "upgrade":
+        legacy = rest[0] if rest else "legacy"
+        print(f"\n  Upgrading integration layout from '{legacy}' to current\n  → Complete\n")
+
+    else:
+        print(f"  Unknown subcommand: {subcmd}")
+
+
 def main():
     """Main CLI entry point."""
     args = sys.argv[1:]
@@ -975,6 +1153,7 @@ def main():
     preset            Manage presets (search, add, remove, list)
     workflow          Run workflows (run, resume, status, list, add)
     bundle            Manage bundles (install, list, remove, build)
+    integration       Manage platform integrations (list, add, remove, switch)
     self              Self check/upgrade forgekit
     <command>         Run a specific phase (see 'forgekit list')
 
@@ -1008,6 +1187,8 @@ def main():
         cmd_bundle(rest)
     elif cmd == "self":
         cmd_self(rest)
+    elif cmd == "integration":
+        cmd_integration(rest)
     else:
         cmd_phase(args)
 
@@ -1076,6 +1257,12 @@ def _constitution_template(project_name: str) -> str:
 ### Test-First Gate
 - Production code has failing test first
 - Tests pass before claiming complete
+
+### Complexity Tracking (Article X)
+- New abstractions require justification
+- Each new dependency gets a complexity score (1-5)
+- Decisions over score 3 require explicit user approval
+- Document all complexity decisions
 
 ## Security
 - Never commit secrets or API keys

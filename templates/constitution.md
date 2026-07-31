@@ -62,3 +62,20 @@
 - Production code MUST have failing test first
 - Test file created BEFORE source file
 - All tests pass before claiming complete
+
+
+### Complexity Tracking (Article X)
+
+Track complexity decisions as they're made:
+- New abstractions require justification
+- Each new dependency gets a complexity score (1-5)
+- Decisions over score 3 require explicit user approval
+- Document all complexity decisions in constitution.md
+
+Example format:
+```markdown
+| Decision | Score | Justification |
+|---|---|---|
+| Add PyYAML dependency | 2 | Replaces buggy hand-rolled parser |
+| Custom workflow engine | 4 | Deferred to v0.3.0 — use external |
+```
