@@ -1485,6 +1485,31 @@ PLATFORMS = {
     "kimi-code": {"config": ".kimi/forgekit.md", "home": ".kimi/KIMI.md", "skills": ".kimi/skills/"},
     "github-copilot": {"config": ".github/copilot-instructions.md", "home": "COPILOT.md", "skills": ".github/copilot/skills/"},
     "goose": {"config": ".goose/forgekit.yaml", "home": ".goose/AGENTS.md", "skills": ".goose/skills/"},
+    # --- Spec Kit integrations (added for full parity) ---
+    "alquimia": {"config": ".alquimia/forgekit.md", "home": ".alquimia/AGENTS.md", "skills": ".alquimia/skills/"},
+    "cline": {"config": ".cline/forgekit.md", "home": ".cline/AGENTS.md", "skills": ".cline/skills/"},
+    "amp": {"config": ".amp/forgekit.md", "home": ".amp/AGENTS.md", "skills": ".amp/skills/"},
+    "devin": {"config": ".devin/forgekit.md", "home": ".devin/AGENTS.md", "skills": ".devin/skills/"},
+    "qwen": {"config": ".qwen/forgekit.md", "home": ".qwen/AGENTS.md", "skills": ".qwen/skills/"},
+    "firebender": {"config": ".firebender/forgekit.md", "home": ".firebender/AGENTS.md", "skills": ".firebender/skills/"},
+    "forge": {"config": ".forge/forgekit.md", "home": ".forge/AGENTS.md", "skills": ".forge/skills/"},
+    "kiro-cli": {"config": ".kiro/forgekit.md", "home": ".kiro/AGENTS.md", "skills": ".kiro/skills/"},
+    "junie": {"config": ".junie/forgekit.md", "home": ".junie/AGENTS.md", "skills": ".junie/skills/"},
+    "auggie": {"config": ".auggie/forgekit.md", "home": ".auggie/AGENTS.md", "skills": ".auggie/skills/"},
+    "shai": {"config": ".shai/forgekit.md", "home": ".shai/AGENTS.md", "skills": ".shai/skills/"},
+    "tabnine": {"config": ".tabnine/forgekit.md", "home": ".tabnine/AGENTS.md", "skills": ".tabnine/skills/"},
+    "kilocode": {"config": ".kilocode/forgekit.md", "home": ".kilocode/AGENTS.md", "skills": ".kilocode/skills/"},
+    "rovodev": {"config": ".rovodev/forgekit.md", "home": ".rovodev/AGENTS.md", "skills": ".rovodev/skills/"},
+    "bob": {"config": ".bob/forgekit.md", "home": ".bob/AGENTS.md", "skills": ".bob/skills/"},
+    "trae": {"config": ".trae/forgekit.md", "home": ".trae/AGENTS.md", "skills": ".trae/skills/"},
+    "codebuddy": {"config": ".codebuddy/forgekit.md", "home": ".codebuddy/AGENTS.md", "skills": ".codebuddy/skills/"},
+    "qodercli": {"config": ".qoder/forgekit.md", "home": ".qoder/AGENTS.md", "skills": ".qoder/skills/"},
+    "lingma": {"config": ".lingma/forgekit.md", "home": ".lingma/AGENTS.md", "skills": ".lingma/skills/"},
+    "omp": {"config": ".omp/forgekit.md", "home": ".omp/AGENTS.md", "skills": ".omp/skills/"},
+    "vibe": {"config": ".vibe/forgekit.md", "home": ".vibe/AGENTS.md", "skills": ".vibe/skills/"},
+    "grok": {"config": ".grok/forgekit.md", "home": ".grok/AGENTS.md", "skills": ".grok/skills/"},
+    "zcode": {"config": ".zcode/forgekit.md", "home": ".zcode/AGENTS.md", "skills": ".zcode/skills/"},
+    "zed": {"config": ".zed/forgekit.md", "home": ".zed/AGENTS.md", "skills": ".zed/skills/"},
     "generic": {"config": "AGENTS.md", "home": "AGENTS.md", "skills": "skills/"},
 }
 
@@ -1503,10 +1528,13 @@ def cmd_integration(args):
     forgekit integration switch <platform> Switch active integration
     forgekit integration upgrade [legacy]  Upgrade integration layout
 
-  Supported platforms:
-    hermes, claude-code, opencode, codex, cursor,
-    gemini-cli, agy, pi, factory-droid, kimi-code,
-    github-copilot, goose, generic
+  Supported platforms (38):
+    hermes, claude-code, opencode, codex, cursor, gemini-cli,
+    agy, pi, factory-droid, kimi-code, github-copilot, goose,
+    alquimia, cline, amp, devin, qwen, firebender, forge,
+    kiro-cli, junie, auggie, shai, tabnine, kilocode, rovodev,
+    bob, trae, codebuddy, qodercli, lingma, omp, vibe, grok,
+    zcode, zed, generic
 """)
         return
 
