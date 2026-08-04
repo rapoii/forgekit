@@ -67,6 +67,18 @@ PHASES = {
     "meta": ["extension", "preset", "workflow", "bundle", "self"],
 }
 
+# Define pipeline modes
+PIPELINE_MODES = {
+    "full": [
+        "constitution", "brainstorm", "clarify", "specify", "analyze", 
+        "checklist", "plan", "tdd", "tasks", "implement", "review", 
+        "verify", "converge", "finish"
+    ],
+    "lite": [
+        "constitution", "specify", "plan", "implement", "verify", "finish"
+    ]
+}
+
 # Hermes auto-trigger content — injected into AGENTS.md (NOT SOUL.md)
 HERMES_AGENTS_MD_CONTENT = """# Forgekit — Development Methodology
 
@@ -103,7 +115,7 @@ When triggered, follow the Forgekit pipeline in order:
 13. `/forgekit.converge` — spec vs reality
 14. `/forgekit.finish` — git cleanup
 
-Not every feature needs all steps. Small features: specify → implement → review.
+Not every feature needs all steps. Small features: specify -> implement -> review.
 """
 
 HERMES_SOUL_MD_SECTION = """
@@ -328,10 +340,14 @@ def cmd_init(args):
         "project": project_name,
         "version": FORGEKIT_VERSION,
         "initialized": datetime.now().isoformat(),
+        "mode": "full",
+        "current_phase": "constitution",
         "tech_stack": {},
         "phases_completed": [],
+        "skipped_phases": {},
+        "review_verdict": "pass",
         "active_spec": None,
-        "extensions": [],
+        "extensions": []
     }
     config_path = fk_dir / "config.yaml"
     _write_yaml(config_path, config)
@@ -406,24 +422,50 @@ def cmd_status(args):
     fk_dir = get_forgekit_dir()
     config = _read_yaml(fk_dir / "config.yaml")
 
+    mode = config.get("mode", "full")
+    phases_completed = config.get("phases_completed", [])
+    skipped_phases = config.get("skipped_phases", {})
+    current_phase = config.get("current_phase", "constitution")
+    
+    pipeline = PIPELINE_MODES.get(mode, PIPELINE_MODES["full"])
+    
     print(f"""
   Forgekit Status
   ===============
   Project: {config.get('project', 'unknown')}
-  Version: {config.get('version', 'unknown')}
-  Initialized: {config.get('initialized', 'unknown')}
-
-  Phases completed: {', '.join(config.get('phases_completed', [])) or 'none yet'}
-  Active spec: {config.get('active_spec', 'none')}
-
-  Files:
-    constitution.md  {'exists' if (fk_dir / 'constitution.md').exists() else 'missing'}
-    spec.md          {'exists' if (fk_dir / 'spec.md').exists() else 'missing'}
-    plan.md          {'exists' if (fk_dir / 'plan.md').exists() else 'missing'}
-    tasks.md         {'exists' if (fk_dir / 'tasks.md').exists() else 'missing'}
-    analysis.md      {'exists' if (fk_dir / 'analysis.md').exists() else 'missing'}
-    checklist.md     {'exists' if (fk_dir / 'checklist.md').exists() else 'missing'}
+  Mode: {mode.upper()} pipeline ({len(pipeline)} steps)
+  Current Phase: {current_phase}
+  Verdict: {config.get('review_verdict', 'pass').upper()}
 """)
+
+    print("  Pipeline Progress:")
+    for phase in pipeline:
+        if phase in phases_completed:
+            icon = "✅"
+            status_text = "completed"
+        elif phase in skipped_phases:
+            icon = "⏭️ "
+            status_text = f"skipped: {skipped_phases[phase]}"
+        elif phase == current_phase:
+            icon = "🔄"
+            status_text = "current"
+        else:
+            icon = "⭕"
+            status_text = "pending"
+        
+        print(f"    {icon} {phase:<15} {status_text}")
+    
+    print(f"\n  Active spec: {config.get('active_spec', 'none')}")
+
+    print("\n  Files:")
+    print(f"    constitution.md  {'exists' if (fk_dir / 'constitution.md').exists() else 'missing'}")
+    print(f"    spec.md          {'exists' if (fk_dir / 'spec.md').exists() else 'missing'}")
+    print(f"    plan.md          {'exists' if (fk_dir / 'plan.md').exists() else 'missing'}")
+    print(f"    tasks.md         {'exists' if (fk_dir / 'tasks.md').exists() else 'missing'}")
+    print(f"    analysis.md      {'exists' if (fk_dir / 'analysis.md').exists() else 'missing'}")
+    print(f"    review.md        {'exists' if (fk_dir / 'reviews' / 'review.md').exists() else 'missing'}")
+    print(f"    verification.md  {'exists' if (fk_dir / 'verification.md').exists() else 'missing'}")
+    print()
 
 
 def cmd_list(args):
@@ -507,6 +549,20 @@ def cmd_phase(args):
 
     fk_dir = get_forgekit_dir()
     config = _read_yaml(fk_dir / "config.yaml")
+    
+    # Enforce review verdict blocking
+    verdict = config.get("review_verdict", "pass").lower()
+    mode = config.get("mode", "full")
+    pipeline = PIPELINE_MODES.get(mode, PIPELINE_MODES["full"])
+    
+    if cmd_name in pipeline:
+        cmd_idx = pipeline.index(cmd_name)
+        if "review" in pipeline:
+            review_idx = pipeline.index("review")
+            if cmd_idx > review_idx and verdict != "pass":
+                print(f"\n  ❌ BLOCKED: Cannot run '{cmd_name}' because review verdict is '{verdict.upper()}'.")
+                print(f"  Please fix the issues found in the review phase, then run review again to get a PASS verdict.")
+                return
 
     print(f"""
   forgekit {cmd_name}
@@ -523,13 +579,137 @@ def cmd_phase(args):
 
     if cmd_name not in config.get("phases_completed", []):
         config.setdefault("phases_completed", []).append(cmd_name)
-        _write_yaml(fk_dir / "config.yaml", config)
+        
+    # Advance current_phase if we are running the current phase or a later one
+    if cmd_name in pipeline:
+        cmd_idx = pipeline.index(cmd_name)
+        curr_phase = config.get("current_phase")
+        if curr_phase in pipeline:
+            curr_idx = pipeline.index(curr_phase)
+            if cmd_idx >= curr_idx and cmd_idx + 1 < len(pipeline):
+                config["current_phase"] = pipeline[cmd_idx + 1]
+                
+    _write_yaml(fk_dir / "config.yaml", config)
+
+
+def cmd_mode(args):
+    """Switch pipeline mode (lite or full)."""
+    if not is_initialized():
+        print("  Forgekit not initialized. Run: forgekit init")
+        return
+        
+    if not args or args[0] in ("-h", "--help"):
+        print("""
+  forgekit mode
+  =============
+  Usage: forgekit mode [lite|full]
+  
+  lite: 5-step pipeline for small/medium tasks
+        (constitution, specify, plan, implement, finish)
+  full: 14-step pipeline for complex features
+""")
+        return
+        
+    mode = args[0].lower()
+    if mode not in ("lite", "full"):
+        print(f"  Invalid mode '{mode}'. Choose 'lite' or 'full'.")
+        return
+        
+    fk_dir = get_forgekit_dir()
+    config = _read_yaml(fk_dir / "config.yaml")
+    
+    old_mode = config.get("mode", "full")
+    config["mode"] = mode
+    _write_yaml(fk_dir / "config.yaml", config)
+    
+    print(f"  Pipeline mode changed: {old_mode.upper()} -> {mode.upper()}")
+
+
+def cmd_skip(args):
+    """Skip a pipeline phase with a recorded reason."""
+    if not is_initialized():
+        print("  Forgekit not initialized. Run: forgekit init")
+        return
+        
+    if not args or args[0] in ("-h", "--help") or len(args) < 2:
+        print("""
+  forgekit skip
+  =============
+  Usage: forgekit skip <phase> --reason "Why we are skipping this"
+  
+  Example:
+    forgekit skip tdd --reason "Script doesn't need unit tests"
+""")
+        return
+        
+    phase = args[0].lower()
+    
+    # Parse reason
+    reason = "No reason provided"
+    if "--reason" in args:
+        idx = args.index("--reason")
+        if idx + 1 < len(args):
+            reason = " ".join(args[idx+1:])
+            
+    fk_dir = get_forgekit_dir()
+    config = _read_yaml(fk_dir / "config.yaml")
+    
+    mode = config.get("mode", "full")
+    pipeline = PIPELINE_MODES.get(mode, PIPELINE_MODES["full"])
+    
+    if phase not in pipeline:
+        print(f"  Phase '{phase}' is not part of the current {mode.upper()} pipeline.")
+        return
+        
+    skipped = config.get("skipped_phases", {})
+    skipped[phase] = reason
+    config["skipped_phases"] = skipped
+    
+    # If skipping the current phase, advance
+    if config.get("current_phase") == phase:
+        curr_idx = pipeline.index(phase)
+        next_phase = pipeline[curr_idx + 1] if curr_idx + 1 < len(pipeline) else "finish"
+        config["current_phase"] = next_phase
+        
+    _write_yaml(fk_dir / "config.yaml", config)
+    print(f"  Skipped phase '{phase}'. Reason: {reason}")
+
+
+def cmd_review_verdict(args):
+    """Set the review verdict (pass, conditional, fail)."""
+    if not is_initialized():
+        print("  Forgekit not initialized. Run: forgekit init")
+        return
+        
+    if not args or args[0] in ("-h", "--help"):
+        print("""
+  forgekit review-verdict
+  =======================
+  Usage: forgekit review-verdict <pass|conditional|fail>
+  
+  Records the outcome of the review phase. 
+  A 'conditional' or 'fail' verdict will block subsequent phases (like verify).
+""")
+        return
+        
+    verdict = args[0].lower()
+    if verdict not in ("pass", "conditional", "fail"):
+        print(f"  Invalid verdict '{verdict}'. Choose 'pass', 'conditional', or 'fail'.")
+        return
+        
+    fk_dir = get_forgekit_dir()
+    config = _read_yaml(fk_dir / "config.yaml")
+    
+    config["review_verdict"] = verdict
+    _write_yaml(fk_dir / "config.yaml", config)
+    
+    print(f"  Review verdict set to: {verdict.upper()}")
 
 
 # ==================== META COMMANDS (Phase 2-5) ====================
 
 def cmd_extension(args):
-    """Manage extensions — search, add, remove, list, enable, disable.
+    """Manage extensions - search, add, remove, list, enable, disable.
     
     Extensions add new capabilities beyond core SDD:
     - Domain-specific workflows (Jira, code review, V-Model)
@@ -537,7 +717,7 @@ def cmd_extension(args):
     - Additional commands and templates
     
     Catalog resolution: project-local > user > built-in.
-    Lifecycle: add → enable → disable → remove (idempotent).
+    Lifecycle: add -> enable -> disable -> remove (idempotent).
     """
     # Built-in extension catalog (priority: lowest)
     BUILTIN_EXTENSIONS = [
@@ -1638,6 +1818,9 @@ def main():
     init              Initialize .forgekit/ in current project
     install-hermes    Install skills + auto-trigger for Hermes Agent
     status            Show project status
+    mode              Switch pipeline mode (lite|full)
+    skip              Skip a phase with recorded reason
+    review-verdict    Record review outcome (pass|conditional|fail)
     list              List all available commands
     run               Show full pipeline overview
     extension         Manage extensions (search, add, remove, list)
@@ -1664,6 +1847,12 @@ def main():
         cmd_install_hermes(rest)
     elif cmd == "status":
         cmd_status(rest)
+    elif cmd == "mode":
+        cmd_mode(rest)
+    elif cmd == "skip":
+        cmd_skip(rest)
+    elif cmd == "review-verdict":
+        cmd_review_verdict(rest)
     elif cmd == "list":
         cmd_list(rest)
     elif cmd == "run":
