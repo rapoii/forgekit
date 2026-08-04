@@ -79,8 +79,8 @@ PIPELINE_MODES = {
     ]
 }
 
-# Hermes auto-trigger content — injected into AGENTS.md (NOT SOUL.md)
-HERMES_AGENTS_MD_CONTENT = """# Forgekit — Development Methodology
+# Hermes auto-trigger content - injected into AGENTS.md (NOT SOUL.md)
+HERMES_AGENTS_MD_CONTENT = """# Forgekit - Development Methodology
 
 This project uses [Forgekit](https://github.com/rapoii/forgekit) for structured development.
 
@@ -95,27 +95,21 @@ Trigger phrases (case-insensitive):
 - "help me build X", "let's start a new project"
 - "/forgekit", "forgekit start"
 
-**Do NOT trigger for:** bug fixes, single-line changes, technical questions, existing project modifications.
+**PENGECECUALIAN:** Fix bug kecil, ubah satu baris code, tanya teknis - JANGAN trigger.
 
-## Pipeline
+## The Forgekit Pipeline (Lite vs Full)
 
-When triggered, follow the Forgekit pipeline in order:
-1. `/forgekit.constitution` — project principles
-2. `/forgekit.brainstorm` — explore approaches
-3. `/forgekit.clarify` — resolve ambiguities
-4. `/forgekit.specify` — formal requirements
-5. `/forgekit.analyze` — consistency check
-6. `/forgekit.checklist` — quality gates
-7. `/forgekit.plan` — architecture + tasks
-8. `/forgekit.tdd` — test-driven development
-9. `/forgekit.tasks` — bite-sized task list
-10. `/forgekit.implement` — subagent execution
-11. `/forgekit.review` — code review
-12. `/forgekit.verify` — pre-completion check
-13. `/forgekit.converge` — spec vs reality
-14. `/forgekit.finish` — git cleanup
+Forgekit uses **Macro-Skills** to optimize context. Do NOT try to load a skill per phase. Load one of these 4 macro-skills depending on the project's current state (check via `forgekit status`):
 
-Not every feature needs all steps. Small features: specify -> implement -> review.
+1. `forgekit-planning` (Constitution, Spec, Plan)
+2. `forgekit-execution` (Tasks, Implement, TDD)
+3. `forgekit-quality` (Review, Verify, Converge)
+4. `forgekit-ops` (Finish, Publish)
+
+You can check status or change mode:
+- `forgekit status`
+- `forgekit mode <lite|full>`
+- `forgekit skip <phase> --reason "..."`
 """
 
 HERMES_SOUL_MD_SECTION = """
