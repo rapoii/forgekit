@@ -149,6 +149,11 @@ Next: /forgekit.brainstorm to explore your first feature idea,
 or /forgekit.specify if you already know what to build.
 ```
 
+### 🛡️ Constitution Tracker Requirement
+When generating this document, you MUST append a `## Constitution Compliance Notes` section at the very bottom.
+In this section, briefly explain how your output aligns with the project's constitution (or note any deviations).
+This ensures the constitution remains an active guardrail throughout development.
+
 ## Output
 
 | File | Description |
@@ -326,6 +331,11 @@ Next steps:
 - /forgekit.specify — if you're ready to formalize the requirements
 ```
 
+### 🛡️ Constitution Tracker Requirement
+When generating this document, you MUST append a `## Constitution Compliance Notes` section at the very bottom.
+In this section, briefly explain how your output aligns with the project's constitution (or note any deviations).
+This ensures the constitution remains an active guardrail throughout development.
+
 ## Output
 
 | File | Description |
@@ -501,6 +511,11 @@ If major gaps remain:
 ```
 ⚠️ [N] high-priority gaps remain. Let's resolve these before specifying.
 ```
+
+### 🛡️ Constitution Tracker Requirement
+When generating this document, you MUST append a `## Constitution Compliance Notes` section at the very bottom.
+In this section, briefly explain how your output aligns with the project's constitution (or note any deviations).
+This ensures the constitution remains an active guardrail throughout development.
 
 ## Output
 
@@ -707,6 +722,11 @@ Next steps:
 - /forgekit.analyze — validate spec against constitution and check for gaps
 - /forgekit.plan — jump to technical architecture (if confident in the spec)
 ```
+
+### 🛡️ Constitution Tracker Requirement
+When generating this document, you MUST append a `## Constitution Compliance Notes` section at the very bottom.
+In this section, briefly explain how your output aligns with the project's constitution (or note any deviations).
+This ensures the constitution remains an active guardrail throughout development.
 
 ## Output
 

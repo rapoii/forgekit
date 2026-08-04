@@ -853,6 +853,11 @@ Next steps:
 - /forgekit.plan — create technical architecture
 ```
 
+### 🛡️ Constitution Tracker Requirement
+When generating this document, you MUST append a `## Constitution Compliance Notes` section at the very bottom.
+In this section, briefly explain how your output aligns with the project's constitution (or note any deviations).
+This ensures the constitution remains an active guardrail throughout development.
+
 ## Output
 
 | File | Description |
