@@ -20,12 +20,30 @@ Ask the user: "Mau pakai mode Lite (6 tahap) atau Full (14 tahap)?"
 
 ## 2. Execute Initialization
 
-Once the user chooses, run:
+Once the user chooses, set up the project state. Forgekit can be run via the CLI (if installed) or entirely via Agent File Operations (Pure Agent Mode).
+
+**Option A: Using CLI (If installed and preferred)**
 ```bash
 forgekit init
 forgekit mode <lite|full>
 forgekit status
 ```
+
+**Option B: Pure Agent Mode (No CLI required)**
+If the CLI is not installed or the user prefers a chat-only experience, YOU (the agent) must manually manage the state by creating/updating `.forgekit/config.yaml`:
+1. Use `write_file` to create `.forgekit/config.yaml` with this structure:
+```yaml
+project: "Project Name"
+version: "0.1.0"
+initialized: "YYYY-MM-DDTHH:MM:SS"
+mode: "lite" # or "full"
+current_phase: "constitution"
+phases_completed: []
+skipped_phases: {}
+review_verdict: "pass"
+active_spec: "none"
+```
+2. For all subsequent phases, YOU must manually read and update this YAML file (advancing `current_phase`, adding to `phases_completed`) using your file tools. You become the state manager.
 
 ## 3. Guide to the First Phase
 
