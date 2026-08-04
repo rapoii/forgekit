@@ -18,7 +18,7 @@ from pathlib import Path
 from datetime import datetime
 
 FORGEKIT_DIR = ".forgekit"
-FORGEKIT_VERSION = "0.1.0"
+FORGEKIT_VERSION = "0.4.0"
 SKILLS_DIR_NAME = "skills"
 
 COMMANDS = {
